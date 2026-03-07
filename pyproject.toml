@@ -5,6 +5,7 @@ description = "MCP server for controlling Blender — create low-poly 3D models 
 requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]",
+    "pillow",
     "pyyaml",
 ]
 

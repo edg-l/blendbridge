@@ -10,6 +10,14 @@ export_base: ./exports/
 # Directory for temporary screenshots and renders
 screenshot_dir: /tmp/blenderagent/
 
+# Directory for saving bpy scene scripts (persisted across sessions)
+# Scripts here can be re-executed to recreate scenes, iterated on, and version controlled.
+scripts_dir: ./scripts/
+
+# Max screenshot resolution (downscaled to save LLM tokens during iteration)
+screenshot_max_width: 512
+screenshot_max_height: 512
+
 # Custom system prompt (path to .md file). null = use built-in default.
 # Example: ~/my-game/blender-style-guide.md
 system_prompt: null

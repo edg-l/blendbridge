@@ -35,8 +35,13 @@ class BlenderClient:
     def execute_script(self, script: str, timeout: float = 30.0) -> dict:
         return self._request("POST", "/execute", {"script": script, "timeout": timeout})
 
-    def screenshot(self, filepath: str = "") -> dict:
-        return self._request("POST", "/screenshot", {"filepath": filepath}, timeout=15.0)
+    def screenshot(self, filepath: str = "", shading: str = "", frame_object: str = "") -> dict:
+        data = {"filepath": filepath}
+        if shading:
+            data["shading"] = shading
+        if frame_object:
+            data["frame_object"] = frame_object
+        return self._request("POST", "/screenshot", data, timeout=15.0)
 
     def render(self, resolution_x: int = 512, resolution_y: int = 512, filepath: str = "") -> dict:
         return self._request("POST", "/render", {
@@ -50,6 +55,22 @@ class BlenderClient:
 
     def export_model(self, filename: str, fmt: str = "GLB") -> dict:
         return self._request("POST", "/export", {"filename": filename, "format": fmt}, timeout=60.0)
+
+    def set_viewport(self, preset: str = "", rotation: list = None,
+                     distance: float = 0, target: list = None,
+                     frame_object: str = "") -> dict:
+        data = {}
+        if preset:
+            data["preset"] = preset
+        if rotation:
+            data["rotation"] = rotation
+        if distance:
+            data["distance"] = distance
+        if target:
+            data["target"] = target
+        if frame_object:
+            data["frame_object"] = frame_object
+        return self._request("POST", "/set_viewport", data, timeout=5.0)
 
     def clear_scene(self) -> dict:
         return self._request("POST", "/clear_scene")
