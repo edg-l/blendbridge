@@ -35,6 +35,8 @@ def stop():
 
     if _server is not None:
         _server.shutdown()
+        if _thread is not None:
+            _thread.join(timeout=5)
         _server = None
         _thread = None
         print("BlendBridge server stopped")

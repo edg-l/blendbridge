@@ -62,11 +62,11 @@ class BlenderClient:
         data = {}
         if preset:
             data["preset"] = preset
-        if rotation:
+        if rotation is not None:
             data["rotation"] = rotation
         if distance:
             data["distance"] = distance
-        if target:
+        if target is not None:
             data["target"] = target
         if frame_object:
             data["frame_object"] = frame_object

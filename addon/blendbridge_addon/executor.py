@@ -52,9 +52,15 @@ def _execute_one(script: str, result: ScriptResult):
 
         result.success = True
         result.output = stdout_capture.getvalue()
+        stderr_output = stderr_capture.getvalue()
+        if stderr_output:
+            result.output += stderr_output
     except Exception:
         result.success = False
         result.output = stdout_capture.getvalue()
+        stderr_output = stderr_capture.getvalue()
+        if stderr_output:
+            result.output += stderr_output
         result.error = traceback.format_exc()
     finally:
         sys.stdout = old_stdout

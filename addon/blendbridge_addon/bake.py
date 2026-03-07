@@ -50,7 +50,17 @@ def _find_bsdf(mat):
     return None
 
 
-def _bake_pass(obj, mat, pass_type, pass_filter, img_name, size, textures_dir):
+def _get_or_create_gltf_group_tree():
+    """Get or create the shared 'glTF Material Output' node group tree."""
+    existing = bpy.data.node_groups.get("glTF Material Output")
+    if existing:
+        return existing
+    group_tree = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
+    group_tree.interface.new_socket("Occlusion", in_out="INPUT", socket_type="NodeSocketFloat")
+    return group_tree
+
+
+def _bake_pass(mat, pass_type, pass_filter, img_name, size, textures_dir, margin):
     """Bake a single pass and save to disk. Returns (image, node, path)."""
     img = bpy.data.images.new(img_name, width=size, height=size)
 
@@ -60,6 +70,7 @@ def _bake_pass(obj, mat, pass_type, pass_filter, img_name, size, textures_dir):
     bake_node.image = img
     nodes.active = bake_node
 
+    bpy.context.scene.render.bake.margin = margin
     bpy.ops.object.bake(
         type=pass_type,
         pass_filter=pass_filter,
@@ -75,17 +86,21 @@ def _bake_pass(obj, mat, pass_type, pass_filter, img_name, size, textures_dir):
     return img, bake_node, img_path
 
 
-def bake_object(name, size=1024, textures_dir=None):
+def bake_object(name, size=1024, textures_dir=None, margin=16):
     """Bake procedural material on an object to image textures.
 
     Bakes both diffuse color and ambient occlusion. The AO map is wired
     to the glTF-compatible occlusion slot so both Godot and Bevy pick it
     up automatically from the exported GLB.
 
+    Bakes the first material slot that contains procedural nodes. Other
+    material slots are left unchanged.
+
     Args:
         name: Name of the Blender object to bake.
         size: Texture resolution (square), default 1024.
         textures_dir: Directory to save baked images. Defaults to a temp dir.
+        margin: Bake margin in pixels to prevent seam bleeding. Default 16.
 
     Returns:
         Path to the saved diffuse image file, or None if baking was skipped.
@@ -99,9 +114,17 @@ def bake_object(name, size=1024, textures_dir=None):
         print(f"bake: object '{name}' has no materials")
         return None
 
-    mat = obj.data.materials[0]
-    if not _has_procedural_nodes(mat):
-        print(f"bake: object '{name}' has no procedural nodes, skipping")
+    # Find first material slot with procedural nodes
+    mat = None
+    mat_index = 0
+    for i, m in enumerate(obj.data.materials):
+        if _has_procedural_nodes(m):
+            mat = m
+            mat_index = i
+            break
+
+    if not mat:
+        print(f"bake: object '{name}' has no procedural nodes in any material slot, skipping")
         return None
 
     # Resolve output directory
@@ -119,19 +142,20 @@ def bake_object(name, size=1024, textures_dir=None):
         # Ensure UV map exists
         _ensure_uv_map(obj)
 
-        # Select the object
+        # Select the object and set active material index
         bpy.ops.object.select_all(action="DESELECT")
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
+        obj.active_material_index = mat_index
 
         # --- Bake diffuse color ---
         diffuse_img, diffuse_node, diffuse_path = _bake_pass(
-            obj, mat, "DIFFUSE", {"COLOR"}, f"{name}_bake", size, textures_dir,
+            mat, "DIFFUSE", {"COLOR"}, f"{name}_bake", size, textures_dir, margin,
         )
 
         # --- Bake ambient occlusion ---
         ao_img, ao_node, ao_path = _bake_pass(
-            obj, mat, "AO", set(), f"{name}_ao", size, textures_dir,
+            mat, "AO", set(), f"{name}_ao", size, textures_dir, margin,
         )
 
         # Rewire material for export
@@ -164,17 +188,8 @@ def _rewire_material(mat, diffuse_node, ao_node=None):
     links.new(diffuse_node.outputs["Color"], base_color_input)
 
     # Connect AO to the glTF-compatible occlusion slot
-    # Blender's glTF exporter reads from a Group node named "glTF Material Output"
-    # but it also reads AO from a dedicated setup. The simplest approach that the
-    # exporter picks up: connect AO image to a Separate Color node, then to
-    # a glTF Material Output group if it exists, or just leave it for the exporter
-    # to find via the material's node graph.
-    #
-    # The glTF exporter looks for an Image Texture node connected (directly or
-    # through Separate Color) to the "Occlusion" input of a "Group" node named
-    # "glTF Material Output". We create this setup.
     if ao_node:
-        # Create or find the glTF Material Output group
+        # Find existing glTF group node in this material, or create one
         gltf_group = None
         for node in nodes:
             if node.bl_idname == "ShaderNodeGroup" and node.node_tree and \
@@ -183,11 +198,8 @@ def _rewire_material(mat, diffuse_node, ao_node=None):
                 break
 
         if not gltf_group:
-            # Create the glTF Material Output node group
-            group_tree = bpy.data.node_groups.new("glTF Material Output", "ShaderNodeTree")
-            group_tree.interface.new_socket("Occlusion", in_out="INPUT", socket_type="NodeSocketFloat")
             gltf_group = nodes.new("ShaderNodeGroup")
-            gltf_group.node_tree = group_tree
+            gltf_group.node_tree = _get_or_create_gltf_group_tree()
 
         links.new(ao_node.outputs["Color"], gltf_group.inputs["Occlusion"])
 
@@ -203,24 +215,51 @@ def _rewire_material(mat, diffuse_node, ao_node=None):
             nodes.remove(node)
 
 
-def bake_all(size=1024, textures_dir=None):
+def bake_all(size=1024, textures_dir=None, margin=16):
     """Bake all mesh objects that have procedural materials.
 
     Args:
         size: Texture resolution (square), default 1024.
         textures_dir: Directory to save baked images.
+        margin: Bake margin in pixels to prevent seam bleeding. Default 16.
 
     Returns:
         List of (object_name, image_path) tuples for successfully baked objects.
     """
-    results = []
+    # Resolve output directory
+    if textures_dir is None:
+        textures_dir = os.path.join(tempfile.gettempdir(), "blendbridge", "textures")
+    os.makedirs(textures_dir, exist_ok=True)
+
+    # Collect objects to bake
+    to_bake = []
     for obj in bpy.data.objects:
         if obj.type != "MESH":
             continue
         if not obj.data.materials:
             continue
         if any(_has_procedural_nodes(mat) for mat in obj.data.materials):
-            path = bake_object(obj.name, size=size, textures_dir=textures_dir)
+            to_bake.append(obj.name)
+
+    if not to_bake:
+        return []
+
+    # Switch engine once for all objects
+    original_engine = bpy.context.scene.render.engine
+    bpy.context.scene.render.engine = "CYCLES"
+    bpy.context.scene.cycles.samples = 64
+    bpy.context.scene.cycles.device = "CPU"
+
+    results = []
+    try:
+        for obj_name in to_bake:
+            # bake_object will try to switch engine again but it's already Cycles,
+            # so the save/restore is a no-op. This is simpler than refactoring
+            # bake_object to optionally skip the engine switch.
+            path = bake_object(obj_name, size=size, textures_dir=textures_dir, margin=margin)
             if path:
-                results.append((obj.name, path))
+                results.append((obj_name, path))
+    finally:
+        bpy.context.scene.render.engine = original_engine
+
     return results

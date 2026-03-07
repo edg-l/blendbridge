@@ -268,10 +268,12 @@ noise.inputs["Scale"].default_value = 5.0
 noise.inputs["Detail"].default_value = 6.0
 links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
 
-# Mix the wave and noise for natural variation
+# Feed noise into wave distortion for organic waviness
+links.new(noise.outputs["Fac"], wave.inputs["Distortion"])
+
+# Mix two wood tones using wave pattern as factor
 mix = nodes.new("ShaderNodeMix")
 mix.data_type = "RGBA"
-mix.inputs["Factor"].default_value = 0.3  # subtle noise influence
 mix.inputs[6].default_value = (0.25, 0.15, 0.05, 1.0)  # dark brown (A)
 mix.inputs[7].default_value = (0.55, 0.35, 0.15, 1.0)  # light tan (B)
 links.new(wave.outputs["Fac"], mix.inputs["Factor"])

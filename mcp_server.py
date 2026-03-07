@@ -212,7 +212,7 @@ def export_model(filename: str, format: str = "GLB") -> str:
     """
     # Path safety: resolve and verify it stays within export_base
     full_path = os.path.normpath(os.path.join(_export_base, filename))
-    if not full_path.startswith(os.path.normpath(_export_base)):
+    if not full_path.startswith(os.path.normpath(_export_base) + os.sep):
         return json.dumps({"error": "Path traversal not allowed. Filename must be relative to export base."})
 
     os.makedirs(os.path.dirname(full_path), exist_ok=True)

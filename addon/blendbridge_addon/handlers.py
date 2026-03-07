@@ -26,7 +26,10 @@ class BlendBridgeHandler(BaseHTTPRequestHandler):
         if length == 0:
             return {}
         raw = self.rfile.read(length)
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return None
 
     def do_GET(self):
         if self.path == "/health":
@@ -37,23 +40,26 @@ class BlendBridgeHandler(BaseHTTPRequestHandler):
             self._send_json({"error": "not found"}, 404)
 
     def do_POST(self):
+        body = self._read_body()
+        if body is None:
+            self._send_json({"error": "Invalid JSON in request body"}, 400)
+            return
         if self.path == "/execute":
-            self._handle_execute()
+            self._handle_execute(body)
         elif self.path == "/screenshot":
-            self._handle_screenshot()
+            self._handle_screenshot(body)
         elif self.path == "/render":
-            self._handle_render()
+            self._handle_render(body)
         elif self.path == "/export":
-            self._handle_export()
+            self._handle_export(body)
         elif self.path == "/clear_scene":
             self._handle_clear_scene()
         elif self.path == "/set_viewport":
-            self._handle_set_viewport()
+            self._handle_set_viewport(body)
         else:
             self._send_json({"error": "not found"}, 404)
 
-    def _handle_execute(self):
-        body = self._read_body()
+    def _handle_execute(self, body):
         script = body.get("script", "")
         timeout = body.get("timeout", 30.0)
 
@@ -134,9 +140,7 @@ print(json.dumps({"objects": objects, "materials": materials}))
             "error": result.error,
         })
 
-    def _handle_screenshot(self):
-        import json as _json
-        body = self._read_body()
+    def _handle_screenshot(self, body):
         shading = body.get("shading", "")  # SOLID, MATERIAL, RENDERED, WIREFRAME
         frame_object = body.get("frame_object", "")
 
@@ -210,10 +214,10 @@ print(json.dumps({{"image_base64": encoded, "filepath": filepath}}))
         result = executor.submit(script, timeout=15.0)
         if result.success and result.output:
             try:
-                data = _json.loads(result.output.strip().split("\n")[-1])
+                data = json.loads(result.output.strip().split("\n")[-1])
                 self._send_json(data)
                 return
-            except _json.JSONDecodeError:
+            except json.JSONDecodeError:
                 pass
         self._send_json({
             "success": result.success,
@@ -221,9 +225,7 @@ print(json.dumps({{"image_base64": encoded, "filepath": filepath}}))
             "error": result.error,
         })
 
-    def _handle_render(self):
-        import json as _json
-        body = self._read_body()
+    def _handle_render(self, body):
         resolution_x = body.get("resolution_x", 512)
         resolution_y = body.get("resolution_y", 512)
 
@@ -238,10 +240,24 @@ if not filepath:
     filepath = os.path.join(tempfile.gettempdir(), "blendbridge_render.png")
 
 scene = bpy.context.scene
+old_res_x = scene.render.resolution_x
+old_res_y = scene.render.resolution_y
+old_res_pct = scene.render.resolution_percentage
+old_filepath = scene.render.filepath
+old_format = scene.render.image_settings.file_format
+
 scene.render.resolution_x = {resolution_x}
 scene.render.resolution_y = {resolution_y}
+scene.render.resolution_percentage = 100
 scene.render.filepath = filepath
+scene.render.image_settings.file_format = 'PNG'
 bpy.ops.render.render(write_still=True)
+
+scene.render.resolution_x = old_res_x
+scene.render.resolution_y = old_res_y
+scene.render.resolution_percentage = old_res_pct
+scene.render.filepath = old_filepath
+scene.render.image_settings.file_format = old_format
 
 with open(filepath, "rb") as f:
     encoded = base64.b64encode(f.read()).decode("ascii")
@@ -252,10 +268,10 @@ print(json.dumps({{"image_base64": encoded, "filepath": filepath}}))
         result = executor.submit(script, timeout=120.0)
         if result.success and result.output:
             try:
-                data = _json.loads(result.output.strip().split("\n")[-1])
+                data = json.loads(result.output.strip().split("\n")[-1])
                 self._send_json(data)
                 return
-            except _json.JSONDecodeError:
+            except json.JSONDecodeError:
                 pass
         self._send_json({
             "success": result.success,
@@ -263,9 +279,7 @@ print(json.dumps({{"image_base64": encoded, "filepath": filepath}}))
             "error": result.error,
         })
 
-    def _handle_export(self):
-        import json as _json
-        body = self._read_body()
+    def _handle_export(self, body):
         filename = body.get("filename", "export.glb")
         export_format = body.get("format", "GLB")
 
@@ -290,10 +304,10 @@ print(json.dumps({{"filepath": filename, "format": export_format}}))
         result = executor.submit(script, timeout=60.0)
         if result.success and result.output:
             try:
-                data = _json.loads(result.output.strip().split("\n")[-1])
+                data = json.loads(result.output.strip().split("\n")[-1])
                 self._send_json(data)
                 return
-            except _json.JSONDecodeError:
+            except json.JSONDecodeError:
                 pass
         self._send_json({
             "success": result.success,
@@ -301,9 +315,7 @@ print(json.dumps({{"filepath": filename, "format": export_format}}))
             "error": result.error,
         })
 
-    def _handle_set_viewport(self):
-        import json as _json
-        body = self._read_body()
+    def _handle_set_viewport(self, body):
         preset = body.get("preset", "")         # FRONT, BACK, LEFT, RIGHT, TOP, THREE_QUARTER
         rotation = body.get("rotation", None)    # [rx, ry, rz] euler degrees
         distance = body.get("distance", 0)       # camera distance
@@ -373,10 +385,10 @@ print(json.dumps({{"success": True}}))
         result = executor.submit(script, timeout=5.0)
         if result.success and result.output:
             try:
-                data = _json.loads(result.output.strip().split("\n")[-1])
+                data = json.loads(result.output.strip().split("\n")[-1])
                 self._send_json(data)
                 return
-            except _json.JSONDecodeError:
+            except json.JSONDecodeError:
                 pass
         self._send_json({
             "success": result.success,
