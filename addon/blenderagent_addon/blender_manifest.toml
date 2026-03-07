@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "blenderagent_addon"
+version = "0.1.0"
+name = "BlenderAgent"
+tagline = "MCP bridge - exposes Blender to AI agents via HTTP"
+maintainer = "BlenderAgent"
+type = "add-on"
+
+tags = ["Development"]
+
+blender_version_min = "5.0.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
+
+[permissions]
+network = "HTTP server for MCP communication on localhost"

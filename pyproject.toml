@@ -1,0 +1,12 @@
+[project]
+name = "blenderagent"
+version = "0.1.0"
+description = "MCP server for controlling Blender — create low-poly 3D models with AI"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]",
+    "pyyaml",
+]
+
+[project.scripts]
+blenderagent = "mcp_server:mcp.run"

@@ -1,0 +1,15 @@
+# BlenderAgent MCP Configuration
+# All fields optional — sensible defaults are used if omitted.
+
+# Port the Blender addon HTTP server listens on
+port: 8400
+
+# Base directory for exported models (relative paths resolved from here)
+export_base: ./exports/
+
+# Directory for temporary screenshots and renders
+screenshot_dir: /tmp/blenderagent/
+
+# Custom system prompt (path to .md file). null = use built-in default.
+# Example: ~/my-game/blender-style-guide.md
+system_prompt: null
