@@ -176,10 +176,35 @@ Results in a single merged mesh — fewest draw calls in-engine.
 - **Build from primitives**: cubes, cylinders, cones, ico spheres — deform and combine them
 - **Keep it simple**: fewer polys = better. If it reads as the right shape, it's done
 
+### Strategic Vertex Placement
+Spend vertices where they improve the **silhouette** (outline) and **readability** of the shape. Skip them on flat, hidden, or interior surfaces.
+
+**Where to add geometry:**
+- **Top edges of solid objects** (walls, tables, crates) — a bevel on the top edge catches light and makes the object feel weighty:
+  ```python
+  # Bevel top edges of a cube to add visual weight
+  import bmesh
+  bm = bmesh.new()
+  bm.from_mesh(obj.data)
+  bm.edges.ensure_lookup_table()
+  top_edges = [e for e in bm.edges if all(v.co.z > height - 0.01 for v in e.verts)]
+  bmesh.ops.bevel(bm, geom=top_edges, offset=0.05, segments=1)
+  bm.to_mesh(obj.data)
+  bm.free()
+  ```
+- **Silhouette curves** — round objects (barrels, pillars, bottles) need enough segments to read as round from any angle. Use 8-12 segments for cylinders, not 32.
+- **Transition points** — where a handle meets a head, where a roof meets walls, where limbs join a body. Add an edge loop at the joint for a clean transition.
+- **Tapers and profiles** — tool handles, sword blades, and tree trunks should taper. 1-2 extra edge loops let you scale down for a convincing profile.
+
+**Where NOT to add geometry:**
+- **Flat interior surfaces** — the middle of a wall or floor doesn't need subdivisions
+- **Hidden faces** — the underside of a table, the back of a wall mounted object. Consider deleting these faces entirely to save polys
+- **Uniform areas** — if a surface has no curvature change, extra edges add nothing
+
 ## Materials
 
-- Use simple flat colors — no complex shaders
-- Create materials with:
+### Flat Color Materials (simple)
+- For objects that don't need surface detail, use flat colors:
   ```python
   mat = bpy.data.materials.new(name="wood")
   mat.use_nodes = True
@@ -188,9 +213,179 @@ Results in a single merged mesh — fewest draw calls in-engine.
   bsdf.inputs["Roughness"].default_value = 0.9
   obj.data.materials.append(mat)
   ```
+
+### UV Unwrapping (required before procedural textures)
+- Objects **must** have a UV map before procedural textures will bake correctly
+- Use Smart UV Project for low-poly models — it handles most shapes well:
+  ```python
+  # UV unwrap an object
+  bpy.ops.object.select_all(action='DESELECT')
+  obj.select_set(True)
+  bpy.context.view_layer.objects.active = obj
+  bpy.ops.object.mode_set(mode='EDIT')
+  bpy.ops.mesh.select_all(action='SELECT')
+  bpy.ops.uv.smart_project(angle_limit=1.15192)  # ~66 degrees
+  bpy.ops.object.mode_set(mode='OBJECT')
+  ```
+- UV unwrap **after** finishing geometry (adding/removing faces invalidates UVs)
+
+### Procedural Textures (for surface detail)
+Use procedural shader nodes when objects need visible surface patterns like wood grain, stone, or metal. These look great in Blender's viewport (MATERIAL shading) and can be baked to images for game engine export.
+
+#### Wood Grain
+```python
+mat = bpy.data.materials.new(name="wood")
+mat.use_nodes = True
+nodes = mat.node_tree.nodes
+links = mat.node_tree.links
+nodes.clear()
+
+# Output and BSDF
+output = nodes.new("ShaderNodeOutputMaterial")
+bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+bsdf.inputs["Roughness"].default_value = 0.8
+links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+
+# Texture coordinates → Mapping (stretch along one axis for grain direction)
+tex_coord = nodes.new("ShaderNodeTexCoord")
+mapping = nodes.new("ShaderNodeMapping")
+mapping.inputs["Scale"].default_value = (1.0, 1.0, 8.0)  # stretch Z = grain along Z
+links.new(tex_coord.outputs["UV"], mapping.inputs["Vector"])
+
+# Wave Texture — creates the wood bands
+wave = nodes.new("ShaderNodeTexWave")
+wave.wave_type = "BANDS"
+wave.bands_direction = "Z"
+wave.wave_profile = "SAW"
+wave.inputs["Scale"].default_value = 3.0
+wave.inputs["Distortion"].default_value = 4.0
+wave.inputs["Detail"].default_value = 2.0
+links.new(mapping.outputs["Vector"], wave.inputs["Vector"])
+
+# Noise Texture — adds organic variation to the grain
+noise = nodes.new("ShaderNodeTexNoise")
+noise.inputs["Scale"].default_value = 5.0
+noise.inputs["Detail"].default_value = 6.0
+links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+
+# Mix the wave and noise for natural variation
+mix = nodes.new("ShaderNodeMix")
+mix.data_type = "RGBA"
+mix.inputs["Factor"].default_value = 0.3  # subtle noise influence
+mix.inputs[6].default_value = (0.25, 0.15, 0.05, 1.0)  # dark brown (A)
+mix.inputs[7].default_value = (0.55, 0.35, 0.15, 1.0)  # light tan (B)
+links.new(wave.outputs["Fac"], mix.inputs["Factor"])
+links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+
+obj.data.materials.append(mat)
+```
+
+#### Stone / Rock
+```python
+mat = bpy.data.materials.new(name="stone")
+mat.use_nodes = True
+nodes = mat.node_tree.nodes
+links = mat.node_tree.links
+nodes.clear()
+
+output = nodes.new("ShaderNodeOutputMaterial")
+bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+bsdf.inputs["Roughness"].default_value = 0.95
+links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+
+tex_coord = nodes.new("ShaderNodeTexCoord")
+
+# Voronoi for stone cell pattern
+voronoi = nodes.new("ShaderNodeTexVoronoi")
+voronoi.inputs["Scale"].default_value = 4.0
+links.new(tex_coord.outputs["UV"], voronoi.inputs["Vector"])
+
+# Noise for surface variation
+noise = nodes.new("ShaderNodeTexNoise")
+noise.inputs["Scale"].default_value = 8.0
+noise.inputs["Detail"].default_value = 4.0
+links.new(tex_coord.outputs["UV"], noise.inputs["Vector"])
+
+# Mix colors — gray/brown stone tones
+mix = nodes.new("ShaderNodeMix")
+mix.data_type = "RGBA"
+mix.inputs[6].default_value = (0.35, 0.32, 0.28, 1.0)  # dark gray-brown
+mix.inputs[7].default_value = (0.55, 0.50, 0.42, 1.0)  # lighter stone
+links.new(voronoi.outputs["Distance"], mix.inputs["Factor"])
+links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+
+obj.data.materials.append(mat)
+```
+
+#### Brushed Metal
+```python
+mat = bpy.data.materials.new(name="metal")
+mat.use_nodes = True
+nodes = mat.node_tree.nodes
+links = mat.node_tree.links
+nodes.clear()
+
+output = nodes.new("ShaderNodeOutputMaterial")
+bsdf = nodes.new("ShaderNodeBsdfPrincipled")
+bsdf.inputs["Metallic"].default_value = 1.0
+bsdf.inputs["Roughness"].default_value = 0.35
+links.new(bsdf.outputs["BSDF"], output.inputs["Surface"])
+
+tex_coord = nodes.new("ShaderNodeTexCoord")
+mapping = nodes.new("ShaderNodeMapping")
+mapping.inputs["Scale"].default_value = (1.0, 1.0, 20.0)  # stretched = brushed look
+links.new(tex_coord.outputs["UV"], mapping.inputs["Vector"])
+
+# Noise for subtle color variation
+noise = nodes.new("ShaderNodeTexNoise")
+noise.inputs["Scale"].default_value = 15.0
+noise.inputs["Detail"].default_value = 3.0
+links.new(mapping.outputs["Vector"], noise.inputs["Vector"])
+
+# Mix between two close metal tones
+mix = nodes.new("ShaderNodeMix")
+mix.data_type = "RGBA"
+mix.inputs[6].default_value = (0.6, 0.6, 0.6, 1.0)  # base metal
+mix.inputs[7].default_value = (0.75, 0.73, 0.7, 1.0)  # highlight
+links.new(noise.outputs["Fac"], mix.inputs["Factor"])
+links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+
+obj.data.materials.append(mat)
+```
+
+### Material Tips
 - Name materials descriptively: "wood", "metal", "leaves", "stone"
 - Keep material count low (fewer = fewer draw calls in-engine)
 - Reuse materials across objects when the color is the same
+- **Create materials once, assign many times** — don't create inside a loop
+- Procedural materials preview instantly with `screenshot(shading="MATERIAL")`
+
+### Baking Textures for Export
+
+Procedural textures don't export to game engines — they must be **baked** to image textures first. Use the bake helper:
+
+```python
+from bl_ext.user_default.blendbridge_addon.bake import bake_object, bake_all
+
+# Bake a single object (default 1024x1024)
+bake_object("mallet_head", size=1024)
+
+# Bake all objects with procedural materials
+bake_all(size=1024)
+```
+
+**When to bake:**
+- **Before `export_model`** — bake first, then export GLB. Baked images embed automatically.
+- **Not needed for preview** — `screenshot(shading="MATERIAL")` shows procedural textures directly.
+- **After geometry is final** — baking depends on UV maps, which depend on finished geometry.
+
+**Workflow:**
+1. Create objects with procedural materials
+2. Preview with `screenshot(shading="MATERIAL")` — iterate on the look
+3. When satisfied, bake: `bake_all(size=1024)`
+4. Export: `export_model(filename="model.glb")`
+
+The bake helper handles everything: UV unwrap (if missing), Cycles switch, image creation, baking, material rewiring, and engine restore.
 
 ## glTF/GLB Export Best Practices
 
