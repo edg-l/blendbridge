@@ -1,4 +1,4 @@
-"""HTTP request handlers for the BlenderAgent addon."""
+"""HTTP request handlers for the BlendBridge addon."""
 
 import json
 from http.server import BaseHTTPRequestHandler
@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler
 from . import executor
 
 
-class BlenderAgentHandler(BaseHTTPRequestHandler):
+class BlendBridgeHandler(BaseHTTPRequestHandler):
     """Handles HTTP requests from the MCP server."""
 
     def log_message(self, format, *args):
@@ -113,7 +113,7 @@ import base64
 
 filepath = {repr(body.get("filepath", ""))}
 if not filepath:
-    filepath = os.path.join(tempfile.gettempdir(), "blenderagent_screenshot.png")
+    filepath = os.path.join(tempfile.gettempdir(), "blendbridge_screenshot.png")
 
 # Find a 3D viewport
 area = None
@@ -171,7 +171,7 @@ import base64
 
 filepath = {repr(body.get("filepath", ""))}
 if not filepath:
-    filepath = os.path.join(tempfile.gettempdir(), "blenderagent_render.png")
+    filepath = os.path.join(tempfile.gettempdir(), "blendbridge_render.png")
 
 scene = bpy.context.scene
 scene.render.resolution_x = {resolution_x}

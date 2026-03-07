@@ -1,4 +1,4 @@
-"""BlenderAgent MCP Server — bridges Claude to Blender via the BlenderAgent addon."""
+"""BlendBridge MCP Server — bridges Claude to Blender via the BlendBridge addon."""
 
 import json
 import os
@@ -38,8 +38,8 @@ os.makedirs(_screenshot_dir, exist_ok=True)
 client = BlenderClient(port=_port)
 
 mcp = FastMCP(
-    "BlenderAgent",
-    instructions=_system_prompt or "BlenderAgent MCP server for controlling Blender. Use execute_script to run bpy Python scripts.",
+    "BlendBridge",
+    instructions=_system_prompt or "BlendBridge MCP server for controlling Blender. Use execute_script to run bpy Python scripts.",
 )
 
 

@@ -4,7 +4,7 @@ from bpy.props import IntProperty, BoolProperty
 from . import server
 
 
-class BlenderAgentPreferences(bpy.types.AddonPreferences):
+class BlendBridgePreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
 
     port: IntProperty(
@@ -28,39 +28,39 @@ class BlenderAgentPreferences(bpy.types.AddonPreferences):
 
         if server.is_running():
             layout.label(text=f"Server running on port {self.port}", icon="CHECKMARK")
-            layout.operator("blenderagent.stop_server")
+            layout.operator("blendbridge.stop_server")
         else:
             layout.label(text="Server not running", icon="ERROR")
-            layout.operator("blenderagent.start_server")
+            layout.operator("blendbridge.start_server")
 
 
-class BLENDERAGENT_OT_start_server(bpy.types.Operator):
-    bl_idname = "blenderagent.start_server"
+class BLENDBRIDGE_OT_start_server(bpy.types.Operator):
+    bl_idname = "blendbridge.start_server"
     bl_label = "Start Server"
-    bl_description = "Start the BlenderAgent HTTP server"
+    bl_description = "Start the BlendBridge HTTP server"
 
     def execute(self, context):
         prefs = context.preferences.addons[__package__].preferences
         server.start(prefs.port)
-        self.report({"INFO"}, f"BlenderAgent server started on port {prefs.port}")
+        self.report({"INFO"}, f"BlendBridge server started on port {prefs.port}")
         return {"FINISHED"}
 
 
-class BLENDERAGENT_OT_stop_server(bpy.types.Operator):
-    bl_idname = "blenderagent.stop_server"
+class BLENDBRIDGE_OT_stop_server(bpy.types.Operator):
+    bl_idname = "blendbridge.stop_server"
     bl_label = "Stop Server"
-    bl_description = "Stop the BlenderAgent HTTP server"
+    bl_description = "Stop the BlendBridge HTTP server"
 
     def execute(self, context):
         server.stop()
-        self.report({"INFO"}, "BlenderAgent server stopped")
+        self.report({"INFO"}, "BlendBridge server stopped")
         return {"FINISHED"}
 
 
 classes = (
-    BlenderAgentPreferences,
-    BLENDERAGENT_OT_start_server,
-    BLENDERAGENT_OT_stop_server,
+    BlendBridgePreferences,
+    BLENDBRIDGE_OT_start_server,
+    BLENDBRIDGE_OT_stop_server,
 )
 
 

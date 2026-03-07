@@ -1,10 +1,10 @@
 schema_version = "1.0.0"
 
-id = "blenderagent_addon"
+id = "blendbridge_addon"
 version = "0.1.0"
-name = "BlenderAgent"
+name = "BlendBridge"
 tagline = "MCP bridge - exposes Blender to AI agents via HTTP"
-maintainer = "BlenderAgent"
+maintainer = "BlendBridge"
 type = "add-on"
 
 tags = ["Development"]

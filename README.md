@@ -1,4 +1,4 @@
-# BlenderAgent
+# BlendBridge
 
 MCP server that lets Claude control Blender 5.0 for creating low-poly 3D models. Designed for game dev workflows targeting Godot and Bevy.
 
@@ -16,7 +16,7 @@ Claude ──MCP──► mcp_server.py ──HTTP──► Blender Addon ──
 ### 1. Install Python Dependencies
 
 ```bash
-cd /path/to/blenderagent
+cd /path/to/blendbridge
 uv sync
 ```
 
@@ -25,27 +25,27 @@ uv sync
 1. Open Blender 5.0
 2. Go to **Edit > Preferences > Add-ons**
 3. Click **Install from Disk...**
-4. Navigate to `addon/blenderagent_addon/` and select the folder (or zip it first)
-5. Enable **BlenderAgent** in the addon list
+4. Navigate to `addon/blendbridge_addon/` and select the folder (or zip it first)
+5. Enable **BlendBridge** in the addon list
 
 Alternatively, symlink the addon into Blender's addon directory:
 
 ```bash
-ln -s /path/to/blenderagent/addon/blenderagent_addon ~/.config/blender/5.0/scripts/addons/blenderagent_addon
+ln -s /path/to/blendbridge/addon/blendbridge_addon ~/.config/blender/5.0/scripts/addons/blendbridge_addon
 ```
 
 Then enable it in Blender's addon preferences.
 
 ### 3. Configure the Addon (Optional)
 
-In Blender's addon preferences for BlenderAgent:
+In Blender's addon preferences for BlendBridge:
 - **Port**: HTTP server port (default: 8400)
 - **Auto-start**: Start server when addon is enabled (default: yes)
 
 ### 4. Register the MCP Server in Claude Code
 
 ```bash
-claude mcp add blenderagent -- uv run --directory /path/to/blenderagent python mcp_server.py
+claude mcp add blendbridge -- uv run --directory /path/to/blendbridge python mcp_server.py
 ```
 
 That's it. The MCP server communicates with the Blender addon over HTTP on localhost.
@@ -58,7 +58,7 @@ Edit `config.yaml` to customize:
 # All optional — defaults shown
 port: 8400                    # Must match Blender addon port
 export_base: ./exports/       # Where exported models are saved
-screenshot_dir: /tmp/blenderagent/  # Temporary screenshots
+screenshot_dir: /tmp/blendbridge/  # Temporary screenshots
 system_prompt: null           # Path to custom .md prompt (null = built-in)
 ```
 
@@ -94,7 +94,7 @@ Claude should write a bpy script to create a tree, execute it, and show you a vi
 ## Project Structure
 
 ```
-blenderagent/
+blendbridge/
 ├── README.md
 ├── pyproject.toml           # Project config + dependencies
 ├── config.yaml              # MCP server config
@@ -103,11 +103,47 @@ blenderagent/
 ├── prompts/
 │   └── default.md           # Built-in system prompt
 └── addon/
-    └── blenderagent_addon/  # Blender addon
+    └── blendbridge_addon/  # Blender addon
         ├── __init__.py      # Addon registration
         ├── server.py        # HTTP server (background thread)
         ├── executor.py      # Main thread script executor
         └── handlers.py      # Request handlers
+```
+
+## Development
+
+### Updating the Blender Addon
+
+After changing any files in `addon/blendbridge_addon/`:
+
+1. Re-build the zip:
+   ```bash
+   cd addon && zip -r ../blendbridge_addon.zip blendbridge_addon/ -x "blendbridge_addon/__pycache__/*"
+   ```
+
+2. In Blender: **Edit > Preferences > Get Extensions** — uninstall the old version
+
+3. **Install from Disk** with the new zip
+
+4. Restart Blender (some changes require a full restart)
+
+### Updating the MCP Server
+
+Changes to `mcp_server.py`, `blender_client.py`, or `config.yaml` take effect on the next Claude Code session (the MCP server restarts automatically).
+
+### Testing the Addon HTTP Server
+
+```bash
+# Health check
+curl http://127.0.0.1:8400/health
+
+# Run a script
+curl -X POST http://127.0.0.1:8400/execute \
+  -H "Content-Type: application/json" \
+  -d '{"script": "import bpy; print(list(bpy.data.objects))"}'
+
+# Scene info
+curl http://127.0.0.1:8400/scene_info
 ```
 
 ## Requirements

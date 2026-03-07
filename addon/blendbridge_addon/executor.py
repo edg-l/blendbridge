@@ -48,7 +48,7 @@ def _execute_one(script: str, result: ScriptResult):
         sys.stderr = stderr_capture
 
         namespace = {"bpy": bpy, "__name__": "__main__"}
-        exec(compile(script, "<blenderagent>", "exec"), namespace)
+        exec(compile(script, "<blendbridge>", "exec"), namespace)
 
         result.success = True
         result.output = stdout_capture.getvalue()
