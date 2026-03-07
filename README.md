@@ -1,6 +1,10 @@
-# BlendBridge
+<p align="center">
+  <img src="logo.svg" alt="BlendBridge" width="200" height="200">
+</p>
 
-MCP server that lets Claude control Blender 5.0 for creating low-poly 3D models. Designed for game dev workflows targeting Godot and Bevy.
+<h1 align="center">BlendBridge</h1>
+
+<p align="center">MCP server that lets Claude control Blender 5.0 for creating low-poly 3D models.<br>Designed for game dev workflows targeting Godot and Bevy.</p>
 
 ## How It Works
 
@@ -85,9 +89,10 @@ Claude should write a bpy script to create a tree, execute it, and show you a vi
 | Tool | Description |
 |------|-------------|
 | `execute_script` | Run a bpy Python script in Blender |
-| `screenshot` | Capture the 3D viewport (fast, for iteration) |
+| `screenshot` | Capture the 3D viewport with configurable shading mode |
+| `set_viewport` | Position the viewport camera (presets or custom angles) |
 | `render` | Full render (slower, for final quality) |
-| `get_scene_info` | List all objects with transforms and materials |
+| `get_scene_info` | List objects, lights, materials with colors and bounds |
 | `export_model` | Export to GLB/glTF for Godot/Bevy |
 | `clear_scene` | Remove everything and start fresh |
 

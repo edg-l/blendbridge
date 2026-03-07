@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bridgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E87D0D;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D4680B;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="cubeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A9EF5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2D7DD2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="cubeLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6BB5FF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4A9EF5;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="cubeDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2D7DD2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1B5FA0;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#1A1A2E" />
+  <circle cx="256" cy="256" r="230" fill="#16213E" />
+
+  <!-- Bridge arch -->
+  <path d="M 80 340 Q 256 120 432 340" fill="none" stroke="url(#bridgeGrad)" stroke-width="18" stroke-linecap="round" />
+
+  <!-- Bridge deck -->
+  <line x1="80" y1="340" x2="432" y2="340" stroke="url(#bridgeGrad)" stroke-width="12" stroke-linecap="round" />
+
+  <!-- Bridge pillars (low-poly style - angular) -->
+  <polygon points="140,340 155,340 155,400 140,400" fill="#E87D0D" />
+  <polygon points="357,340 372,340 372,400 357,400" fill="#E87D0D" />
+
+  <!-- Bridge support struts (angular/geometric) -->
+  <line x1="148" y1="340" x2="190" y2="260" stroke="#E87D0D" stroke-width="6" stroke-linecap="round" opacity="0.7" />
+  <line x1="365" y1="340" x2="322" y2="260" stroke="#E87D0D" stroke-width="6" stroke-linecap="round" opacity="0.7" />
+  <line x1="148" y1="340" x2="220" y2="210" stroke="#E87D0D" stroke-width="5" stroke-linecap="round" opacity="0.5" />
+  <line x1="365" y1="340" x2="292" y2="210" stroke="#E87D0D" stroke-width="5" stroke-linecap="round" opacity="0.5" />
+
+  <!-- Low-poly 3D cube (isometric) sitting on top of bridge arch -->
+  <!-- Top face -->
+  <polygon points="256,135 306,162 256,189 206,162" fill="url(#cubeLight)" />
+  <!-- Left face -->
+  <polygon points="206,162 256,189 256,239 206,212" fill="url(#cubeGrad)" />
+  <!-- Right face -->
+  <polygon points="306,162 256,189 256,239 306,212" fill="url(#cubeDark)" />
+
+  <!-- Small diamond accent on left pillar base -->
+  <polygon points="148,415 160,425 148,435 136,425" fill="#4A9EF5" opacity="0.8" />
+  <!-- Small diamond accent on right pillar base -->
+  <polygon points="365,415 377,425 365,435 353,425" fill="#4A9EF5" opacity="0.8" />
+
+  <!-- Subtle grid dots on bridge deck -->
+  <circle cx="190" cy="340" r="3" fill="#E87D0D" opacity="0.4" />
+  <circle cx="230" cy="340" r="3" fill="#E87D0D" opacity="0.4" />
+  <circle cx="270" cy="340" r="3" fill="#E87D0D" opacity="0.4" />
+  <circle cx="310" cy="340" r="3" fill="#E87D0D" opacity="0.4" />
+</svg>
