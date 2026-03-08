@@ -14,7 +14,7 @@ import bpy
 
 def _has_procedural_nodes(mat):
     """Check if a material has procedural texture nodes (not just Image Texture)."""
-    if not mat or not mat.use_nodes:
+    if not mat or not mat.node_tree:
         return False
     procedural_types = {
         "ShaderNodeTexNoise",
@@ -86,12 +86,23 @@ def _bake_pass(mat, pass_type, pass_filter, img_name, size, textures_dir, margin
     return img, bake_node, img_path
 
 
+def _has_bump_or_normal(mat):
+    """Check if a material has Bump or Normal Map nodes connected to the BSDF."""
+    if not mat or not mat.node_tree:
+        return False
+    for node in mat.node_tree.nodes:
+        if node.bl_idname in ("ShaderNodeBump", "ShaderNodeNormalMap"):
+            return True
+    return False
+
+
 def bake_object(name, size=1024, textures_dir=None, margin=16):
     """Bake procedural material on an object to image textures.
 
-    Bakes both diffuse color and ambient occlusion. The AO map is wired
-    to the glTF-compatible occlusion slot so both Godot and Bevy pick it
-    up automatically from the exported GLB.
+    Bakes diffuse color, ambient occlusion, and normal map (if the material
+    has bump/normal nodes). The AO map is wired to the glTF-compatible
+    occlusion slot and the normal map to the BSDF Normal input, so Godot
+    and Bevy pick them up automatically from the exported GLB.
 
     Bakes the first material slot that contains procedural nodes. Other
     material slots are left unchanged.
@@ -158,8 +169,17 @@ def bake_object(name, size=1024, textures_dir=None, margin=16):
             mat, "AO", set(), f"{name}_ao", size, textures_dir, margin,
         )
 
+        # --- Bake normal map (only if material uses bump/normal nodes) ---
+        normal_node = None
+        if _has_bump_or_normal(mat):
+            normal_img, normal_node, normal_path = _bake_pass(
+                mat, "NORMAL", set(), f"{name}_normal", size, textures_dir, margin,
+            )
+            # Normal maps must be Non-Color
+            normal_img.colorspace_settings.name = "Non-Color"
+
         # Rewire material for export
-        _rewire_material(mat, diffuse_node, ao_node)
+        _rewire_material(mat, diffuse_node, ao_node, normal_node)
 
         return diffuse_path
 
@@ -168,7 +188,7 @@ def bake_object(name, size=1024, textures_dir=None, margin=16):
         bpy.context.scene.render.engine = original_engine
 
 
-def _rewire_material(mat, diffuse_node, ao_node=None):
+def _rewire_material(mat, diffuse_node, ao_node=None, normal_node=None):
     """Replace procedural nodes with baked image textures."""
     nodes = mat.node_tree.nodes
     links = mat.node_tree.links
@@ -178,18 +198,18 @@ def _rewire_material(mat, diffuse_node, ao_node=None):
         print("bake: no Principled BSDF found, cannot rewire")
         return
 
-    # Remove all links going into Base Color
-    base_color_input = bsdf.inputs["Base Color"]
-    for link in list(links):
-        if link.to_socket == base_color_input:
-            links.remove(link)
+    # Remove all links going into Base Color and Normal
+    for input_name in ("Base Color", "Normal"):
+        inp = bsdf.inputs[input_name]
+        for link in list(links):
+            if link.to_socket == inp:
+                links.remove(link)
 
     # Connect diffuse bake to Base Color
-    links.new(diffuse_node.outputs["Color"], base_color_input)
+    links.new(diffuse_node.outputs["Color"], bsdf.inputs["Base Color"])
 
     # Connect AO to the glTF-compatible occlusion slot
     if ao_node:
-        # Find existing glTF group node in this material, or create one
         gltf_group = None
         for node in nodes:
             if node.bl_idname == "ShaderNodeGroup" and node.node_tree and \
@@ -203,12 +223,20 @@ def _rewire_material(mat, diffuse_node, ao_node=None):
 
         links.new(ao_node.outputs["Color"], gltf_group.inputs["Occlusion"])
 
-    # Remove procedural texture nodes (keep BSDF, output, image textures, glTF group)
+    # Connect normal map bake via a Normal Map node
+    if normal_node:
+        normal_map = nodes.new("ShaderNodeNormalMap")
+        normal_map.location = (normal_node.location.x + 300, normal_node.location.y)
+        links.new(normal_node.outputs["Color"], normal_map.inputs["Color"])
+        links.new(normal_map.outputs["Normal"], bsdf.inputs["Normal"])
+
+    # Remove procedural texture nodes (keep BSDF, output, image textures, glTF group, normal map)
     keep_types = {
         "ShaderNodeBsdfPrincipled",
         "ShaderNodeOutputMaterial",
         "ShaderNodeTexImage",
         "ShaderNodeGroup",
+        "ShaderNodeNormalMap",
     }
     for node in list(nodes):
         if node.bl_idname not in keep_types:

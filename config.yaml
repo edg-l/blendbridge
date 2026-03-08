@@ -21,3 +21,12 @@ screenshot_max_height: 512
 # Custom system prompt (path to .md file). null = use built-in default.
 # Example: ~/my-game/blender-style-guide.md
 system_prompt: null
+
+# Directory for downloaded PBR textures from AmbientCG (cached locally)
+# Defaults to ./textures/ relative to the project root
+textures_dir: ./textures/
+
+# Blender-accessible path for textures. Set this when Blender runs on a different
+# filesystem than the MCP server. fetch_texture downloads here so scripts can use
+# the returned path directly. When null, falls back to textures_dir.
+blender_textures_dir: /home/edgar/textures_2d/

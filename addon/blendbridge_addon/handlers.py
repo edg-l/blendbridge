@@ -114,7 +114,7 @@ for obj in bpy.data.objects:
 materials = []
 for mat in bpy.data.materials:
     m_info = {"name": mat.name, "users": mat.users}
-    if mat.use_nodes:
+    if mat.node_tree:
         for node in mat.node_tree.nodes:
             if node.type == "BSDF_PRINCIPLED":
                 bc = node.inputs["Base Color"].default_value
